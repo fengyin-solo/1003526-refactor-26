@@ -18,6 +18,58 @@
       </article>
     </div>
 
+    <div class="batch-panel">
+      <div class="panel-title">水位整编待办 · 复用断面校核批次结论</div>
+      <p class="muted-text panel-hint">
+        整编不重新校核：同一断面同一测量日期已有批次结论时直接采用，重测结论须先完成重测成果。
+        待采用 {{ todoStats.pending }} 项 · 已采用 {{ todoStats.adopted }} 项 · 重测阻塞 {{ todoStats.blocked }} 项
+      </p>
+      <table class="data-table" v-if="todos.length">
+        <thead>
+          <tr>
+            <th>站点编号</th>
+            <th>断面名称</th>
+            <th>测量日期</th>
+            <th>校核批次</th>
+            <th>批次结论</th>
+            <th>采用状态</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="todo in todos" :key="todo.key">
+            <td>{{ todo.station }}</td>
+            <td>{{ todo.section }}</td>
+            <td>{{ todo.date }}</td>
+            <td>{{ todo.batchNo }}</td>
+            <td>
+              <span class="badge" :class="todo.verdict === '合格' ? 'badge-ok' : 'badge-bad'">
+                {{ todo.verdict }}
+              </span>
+              <span class="muted-text reason-inline">{{ todo.reason }}</span>
+            </td>
+            <td>
+              <span v-if="todo.adopted" class="badge badge-ok">已采用 {{ todo.adoptedAt?.slice(0, 10) }}</span>
+              <span v-else-if="todo.verdict === '重测'" class="badge badge-bad">待重测成果</span>
+              <span v-else class="badge badge-warn">待采用</span>
+            </td>
+            <td>
+              <button
+                v-if="!todo.adopted && todo.verdict === '合格'"
+                class="link"
+                type="button"
+                @click="adopt(todo.key)"
+              >
+                采用批次结论
+              </button>
+              <span v-else class="muted-text">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="muted-text">暂无可复用的断面校核批次结论。</p>
+    </div>
+
     <p class="status-legend">
       <span v-for="item in statusSummary" :key="item.status" class="legend-item">
         {{ item.status }}：{{ item.count }}
@@ -79,6 +131,11 @@ import {
   moduleMeta,
   runAction as applyAction,
 } from '@/api/local-service'
+import {
+  adoptConclusionForCompilation,
+  listCompilationTodos,
+  type CompilationTodo,
+} from '@/data/crosssection-checks'
 import type { EntryRow } from '@/data/types'
 
 const meta = moduleMeta('compilation')
@@ -91,6 +148,24 @@ const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
+const todos = ref<CompilationTodo[]>([])
+
+const todoStats = computed(() => ({
+  pending: todos.value.filter((todo) => !todo.adopted && todo.verdict === '合格').length,
+  adopted: todos.value.filter((todo) => todo.adopted).length,
+  blocked: todos.value.filter((todo) => !todo.adopted && todo.verdict === '重测').length,
+}))
+
+function adopt(key: string) {
+  errorMessage.value = ''
+  const result = adoptConclusionForCompilation(key)
+  errorMessage.value = result.message
+  loadTodos()
+}
+
+function loadTodos() {
+  todos.value = listCompilationTodos()
+}
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
@@ -133,5 +208,8 @@ function reload() {
   }
 }
 
-onMounted(reload)
+onMounted(() => {
+  reload()
+  loadTodos()
+})
 </script>

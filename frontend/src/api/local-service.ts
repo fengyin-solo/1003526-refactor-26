@@ -1,5 +1,6 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { getBoard } from '@/data/crosssection-checks'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
@@ -85,6 +86,9 @@ export function downloadEntries(key: string): void {
 }
 
 export function loadOverview(): OverviewResult {
+  // 断面校核批次有独立的存量迁移，概览统计前先确保其已初始化，
+  // 否则用户没进过断面页时，待校核/异常统计会停留在迁移前的旧状态。
+  getBoard()
   const rows = allRows()
   const modules = [...MODULE_BY_KEY.values()].map((meta) => {
     const entries = rows[meta.key] ?? []

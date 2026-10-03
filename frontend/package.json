@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "verify:crosssection": "node --no-warnings --loader ./scripts/ts-loader.mjs scripts/verify-crosssection.mts"
   },
   "dependencies": {
     "pinia": "^2.1.7",

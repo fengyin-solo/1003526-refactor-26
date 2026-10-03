@@ -1,4 +1,5 @@
 import { MODULE_BY_KEY } from '@/data/modules'
+import { resetLedger } from '@/data/crosssection/store'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
@@ -30,6 +31,14 @@ export function listEntries(key: string, filters: Record<string, string> = {}): 
 
 export function runAction(key: string, id: number, action: string): ActionResult {
   const meta = moduleMeta(key)
+  // 断面校核的状态流转全部由校核批次领域服务统一裁决，禁止通用动作直改，
+  // 避免单次/批量/导出三个入口绕过批次占用与结论收敛规则。
+  if (key === 'crosssection') {
+    return {
+      ok: false,
+      message: '断面校核必须通过校核批次入口处理，不能直接改状态',
+    }
+  }
   const target = meta.actionTargets[action]
   if (!target) {
     return { ok: false, message: `${meta.entity}没有登记「${action}」这个动作` }
@@ -58,6 +67,10 @@ export function runAction(key: string, id: number, action: string): ActionResult
 
 export function resetModule(key: string): PageResult {
   resetRows(key)
+  if (key === 'crosssection') {
+    // 断面批次台账与测量记录一体，重置后按种子数据重新回填历史批次。
+    resetLedger()
+  }
   return listEntries(key)
 }
 

@@ -24,6 +24,32 @@
       </span>
     </p>
 
+    <section class="compilation-box">
+      <h3 class="compilation-title">水位整编待办（复用断面校核批次结论）</h3>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>水位记录</th>
+            <th>站点编号</th>
+            <th>日期</th>
+            <th>断面</th>
+            <th>复用批次</th>
+            <th>整编结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="todo in todos" :key="todo.recordNo">
+            <td>{{ todo.recordNo }}</td>
+            <td>{{ todo.station }}</td>
+            <td>{{ todo.date }}</td>
+            <td>{{ todo.section }}</td>
+            <td>{{ todo.batchNo ?? '—' }}</td>
+            <td :class="`todo-state-${todo.state}`">{{ todo.message }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <form class="filter-bar" @submit.prevent="reload">
       <label v-for="field in filterFields" :key="field" class="filter-item">
         <span>{{ field }}</span>
@@ -80,6 +106,11 @@ import {
   runAction as applyAction,
 } from '@/api/local-service'
 import type { EntryRow } from '@/data/types'
+import {
+  ensureLedger,
+  waterlevelCompilationTodos,
+  type CompilationTodo,
+} from '@/data/crosssection/store'
 
 const meta = moduleMeta('waterlevel')
 const columns = ["记录编号", "站点编号", "观测时间", "当前水位", "警戒水位", "保证水位", "水位变幅", "记录状态"]
@@ -91,6 +122,7 @@ const rows = ref<EntryRow[]>([])
 const total = ref(0)
 const errorMessage = ref('')
 const filters = ref<Record<string, string>>({})
+const todos = ref<CompilationTodo[]>([])
 const filterFields = columns.slice(0, 3)
 const statusSummary = computed(() =>
   statuses.map((status: string) => ({
@@ -125,9 +157,11 @@ function runAction(action: string, row: EntryRow) {
 function reload() {
   errorMessage.value = ''
   try {
+    ensureLedger()
     const payload = listEntries(meta.key, filters.value)
     rows.value = payload.items
     total.value = payload.total
+    todos.value = waterlevelCompilationTodos()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '水位监测列表读取失败'
   }
@@ -135,3 +169,31 @@ function reload() {
 
 onMounted(reload)
 </script>
+
+<style scoped>
+.compilation-box {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.compilation-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.todo-state-ready {
+  color: #067647;
+}
+
+.todo-state-retest {
+  color: #b42318;
+}
+
+.todo-state-open,
+.todo-state-none {
+  color: var(--muted);
+}
+</style>
